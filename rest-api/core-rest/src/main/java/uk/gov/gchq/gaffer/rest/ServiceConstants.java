@@ -23,9 +23,6 @@ public final class ServiceConstants {
     // REST Headers
     public static final String GAFFER_MEDIA_TYPE_HEADER = "X-Gaffer-Media-Type";
     public static final String GAFFER_MEDIA_TYPE;
-    public static final String GAFFER_MEDIA_TYPE_HEADER_DESCRIPTION = "The gaffer media type containing the REST API version.";
-    public static final String JOB_ID_HEADER = "job-id";
-    public static final String JOB_ID_HEADER_DESCRIPTION = "The job execution ID.";
 
     // REST status error messages
     public static final String OK = "OK";
@@ -35,7 +32,6 @@ public final class ServiceConstants {
 
     public static final String CLASS_NOT_FOUND = "Class not found";
     public static final String FUNCTION_NOT_FOUND = "Function not found";
-    public static final String PROPERTY_NOT_FOUND = "Property not found";
 
     public static final String OPERATION_NOT_FOUND = "Operation not found";
     public static final String OPERATION_NOT_IMPLEMENTED = "The requested operation is not supported by the target store";

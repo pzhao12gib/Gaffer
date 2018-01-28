@@ -21,7 +21,6 @@ import uk.gov.gchq.gaffer.named.operation.NamedOperationDetail;
 import uk.gov.gchq.gaffer.named.operation.cache.exception.CacheOperationFailedException;
 import uk.gov.gchq.gaffer.operation.Operation;
 import uk.gov.gchq.gaffer.operation.OperationChain;
-import uk.gov.gchq.gaffer.operation.Operations;
 import uk.gov.gchq.gaffer.operation.io.Input;
 import uk.gov.gchq.gaffer.store.Context;
 import uk.gov.gchq.gaffer.store.operation.handler.named.cache.NamedOperationCache;
@@ -47,7 +46,9 @@ public class NamedOperationResolver implements GraphHook {
 
     @Override
     public void preExecute(final OperationChain<?> opChain, final Context context) {
-        resolveNamedOperations(opChain, context.getUser());
+        final List<Operation> updatedOperations = resolveNamedOperations(opChain.getOperations(), context.getUser());
+        opChain.getOperations().clear();
+        opChain.getOperations().addAll(updatedOperations);
     }
 
     @Override
@@ -60,20 +61,16 @@ public class NamedOperationResolver implements GraphHook {
         return result;
     }
 
-    private void resolveNamedOperations(final Operations<?> operations, final User user) {
-        final List<Operation> updatedOperations = new ArrayList<>(operations.getOperations().size());
-        for (final Operation operation : operations.getOperations()) {
-            if (operation instanceof NamedOperation) {
+    private List<Operation> resolveNamedOperations(final List<Operation> operations, final User user) {
+        List<Operation> updatedOperations = new ArrayList<>(operations.size());
+        for (final Operation operation : operations) {
+            if (NamedOperation.class.equals(operation.getClass())) {
                 updatedOperations.addAll(resolveNamedOperation((NamedOperation) operation, user));
             } else {
-                if (operation instanceof Operations) {
-                    resolveNamedOperations(((Operations<?>) operation), user);
-                }
                 updatedOperations.add(operation);
             }
         }
-        operations.getOperations().clear();
-        operations.getOperations().addAll((List) updatedOperations);
+        return updatedOperations;
     }
 
     private List<Operation> resolveNamedOperation(final NamedOperation namedOp, final User user) {
@@ -89,8 +86,7 @@ public class NamedOperationResolver implements GraphHook {
         updateOperationInput(namedOperationChain, namedOp.getInput());
 
         // Call resolveNamedOperations again to check there are no nested named operations
-        resolveNamedOperations(namedOperationChain, user);
-        return namedOperationChain.getOperations();
+        return resolveNamedOperations(namedOperationChain.getOperations(), user);
     }
 
     /**

@@ -22,7 +22,6 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
-import io.swagger.annotations.ResponseHeader;
 import org.glassfish.jersey.server.ChunkedOutput;
 
 import uk.gov.gchq.gaffer.operation.Operation;
@@ -39,11 +38,7 @@ import javax.ws.rs.core.Response;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.BAD_REQUEST;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.FORBIDDEN;
-import static uk.gov.gchq.gaffer.rest.ServiceConstants.GAFFER_MEDIA_TYPE_HEADER;
-import static uk.gov.gchq.gaffer.rest.ServiceConstants.GAFFER_MEDIA_TYPE_HEADER_DESCRIPTION;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.INTERNAL_SERVER_ERROR;
-import static uk.gov.gchq.gaffer.rest.ServiceConstants.JOB_ID_HEADER;
-import static uk.gov.gchq.gaffer.rest.ServiceConstants.JOB_ID_HEADER_DESCRIPTION;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.OK;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.OPERATION_NOT_FOUND;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.OPERATION_NOT_IMPLEMENTED;
@@ -59,25 +54,13 @@ import static uk.gov.gchq.gaffer.rest.ServiceConstants.OPERATION_NOT_IMPLEMENTED
 public interface IOperationServiceV2 {
 
     @GET
-    @ApiOperation(value = "Gets all operations supported by the store.",
-            response = String.class,
-            responseContainer = "list",
-            produces = APPLICATION_JSON,
-            responseHeaders = {
-                    @ResponseHeader(name = GAFFER_MEDIA_TYPE_HEADER, description = GAFFER_MEDIA_TYPE_HEADER_DESCRIPTION)
-            })
+    @ApiOperation(value = "Gets all operations supported by the store.", response = String.class, responseContainer = "list", produces = APPLICATION_JSON)
     @ApiResponses(value = {@ApiResponse(code = 200, message = OK)})
     Response getOperations();
 
     @POST
     @Path("/execute")
-    @ApiOperation(value = "Performs the given operation on the graph",
-            response = Object.class,
-            produces = APPLICATION_JSON,
-            responseHeaders = {
-                    @ResponseHeader(name = JOB_ID_HEADER, description = JOB_ID_HEADER_DESCRIPTION),
-                    @ResponseHeader(name = GAFFER_MEDIA_TYPE_HEADER, description = GAFFER_MEDIA_TYPE_HEADER_DESCRIPTION)
-            })
+    @ApiOperation(value = "Performs the given operation on the graph", response = Object.class, produces = APPLICATION_JSON)
     @ApiResponses(value = {@ApiResponse(code = 200, message = OK),
             @ApiResponse(code = 400, message = BAD_REQUEST),
             @ApiResponse(code = 403, message = FORBIDDEN),
@@ -100,11 +83,7 @@ public interface IOperationServiceV2 {
 
     @GET
     @Path("/{className}")
-    @ApiOperation(value = "Gets details about the specified operation class.",
-            produces = APPLICATION_JSON,
-            responseHeaders = {
-                    @ResponseHeader(name = GAFFER_MEDIA_TYPE_HEADER, description = GAFFER_MEDIA_TYPE_HEADER_DESCRIPTION)
-            })
+    @ApiOperation(value = "Gets details about the specified operation class.", produces = APPLICATION_JSON)
     @ApiResponses(value = {@ApiResponse(code = 200, message = OK),
             @ApiResponse(code = 403, message = FORBIDDEN),
             @ApiResponse(code = 404, message = OPERATION_NOT_FOUND),
@@ -113,11 +92,7 @@ public interface IOperationServiceV2 {
 
     @GET
     @Path("/{className}/example")
-    @ApiOperation(value = "Gets example JSON for the specified operation class.",
-            produces = APPLICATION_JSON,
-            responseHeaders = {
-                    @ResponseHeader(name = GAFFER_MEDIA_TYPE_HEADER, description = GAFFER_MEDIA_TYPE_HEADER_DESCRIPTION)
-            })
+    @ApiOperation(value = "Gets example JSON for the specified operation class.", produces = APPLICATION_JSON)
     @ApiResponses(value = {@ApiResponse(code = 200, message = OK),
             @ApiResponse(code = 403, message = FORBIDDEN),
             @ApiResponse(code = 404, message = OPERATION_NOT_FOUND),
@@ -127,12 +102,7 @@ public interface IOperationServiceV2 {
     @GET
     @Path("/{className}/next")
     @ApiOperation(value = "Gets all the compatible operations that could be added to an operation chain after the provided operation.",
-            response = String.class,
-            responseContainer = "list",
-            produces = APPLICATION_JSON,
-            responseHeaders = {
-                    @ResponseHeader(name = GAFFER_MEDIA_TYPE_HEADER, description = GAFFER_MEDIA_TYPE_HEADER_DESCRIPTION)
-            })
+            response = String.class, responseContainer = "list", produces = APPLICATION_JSON)
     @ApiResponses(value = {@ApiResponse(code = 200, message = OK),
             @ApiResponse(code = 404, message = OPERATION_NOT_FOUND),
             @ApiResponse(code = 500, message = INTERNAL_SERVER_ERROR)})

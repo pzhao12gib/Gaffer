@@ -25,8 +25,7 @@ import uk.gov.gchq.gaffer.data.element.Entity;
 import uk.gov.gchq.gaffer.data.element.Properties;
 
 /**
- * An {@code EntityKryoSerializer} is a {@link Kryo} {@link com.esotericsoftware.kryo.Serializer} for
- * a Gaffer {@link Entity}
+ * A Kryo {@link Serializer} for an {@link Entity}.
  */
 public class EntityKryoSerializer extends Serializer<Entity> {
 

@@ -38,7 +38,6 @@ import java.net.URI;
 
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.GAFFER_MEDIA_TYPE;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.GAFFER_MEDIA_TYPE_HEADER;
-import static uk.gov.gchq.gaffer.rest.ServiceConstants.JOB_ID_HEADER;
 
 /**
  * An implementation of {@link IJobServiceV2}. By default it will use a singleton
@@ -63,7 +62,13 @@ public class JobServiceV2 implements IJobServiceV2 {
     public Response executeJob(final Operation operation) throws OperationException {
         final Context context = userFactory.createContext();
 
-        final OperationChain opChain = OperationChain.wrap(operation);
+        OperationChain opChain;
+
+        if (operation instanceof OperationChain) {
+            opChain = (OperationChain) operation;
+        } else {
+            opChain = new OperationChain(operation);
+        }
 
         preOperationHook(opChain, context);
 
@@ -78,7 +83,6 @@ public class JobServiceV2 implements IJobServiceV2 {
 
             return Response.created(location).entity(jobDetail)
                     .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
-                    .header(JOB_ID_HEADER, context.getJobId())
                     .build();
         } finally {
             postOperationHook(opChain, context);
@@ -87,39 +91,31 @@ public class JobServiceV2 implements IJobServiceV2 {
 
     @Override
     public Response details() throws OperationException {
-        final Context context = userFactory.createContext();
         return Response.ok(graphFactory.getGraph()
                 .execute(new GetAllJobDetails(),
-                        context))
+                        userFactory.createContext()))
                 .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
-                .header(JOB_ID_HEADER, context.getJobId())
                 .build();
     }
 
     @Override
     public Response details(final String id) throws OperationException {
-        final Context context = userFactory.createContext();
         return Response.ok(graphFactory.getGraph().execute(
                 new GetJobDetails.Builder()
                         .jobId(id)
                         .build(),
-                context))
+                userFactory.createContext()))
                 .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
-                .header(JOB_ID_HEADER, context.getJobId())
                 .build();
     }
 
     @Override
     public Response results(final String id) throws OperationException {
-        final Context context = userFactory.createContext();
         return Response.ok(graphFactory.getGraph().execute(
                 new GetJobResults.Builder()
                         .jobId(id)
                         .build(),
-                context))
-                .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
-                .header(JOB_ID_HEADER, context.getJobId())
-                .build();
+                userFactory.createContext())).build();
     }
 
     protected void preOperationHook(final OperationChain<?> opChain, final Context context) {

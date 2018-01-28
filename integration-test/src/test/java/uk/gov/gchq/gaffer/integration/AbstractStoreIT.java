@@ -21,7 +21,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TestName;
 
-import uk.gov.gchq.gaffer.commonutil.CollectionUtil;
 import uk.gov.gchq.gaffer.commonutil.TestGroups;
 import uk.gov.gchq.gaffer.commonutil.TestPropertyNames;
 import uk.gov.gchq.gaffer.commonutil.TestTypes;
@@ -43,8 +42,8 @@ import uk.gov.gchq.gaffer.store.schema.SchemaEdgeDefinition;
 import uk.gov.gchq.gaffer.store.schema.SchemaEntityDefinition;
 import uk.gov.gchq.gaffer.store.schema.TypeDefinition;
 import uk.gov.gchq.gaffer.user.User;
-import uk.gov.gchq.koryphe.impl.binaryoperator.CollectionConcat;
 import uk.gov.gchq.koryphe.impl.binaryoperator.Max;
+import uk.gov.gchq.koryphe.impl.binaryoperator.StringConcat;
 import uk.gov.gchq.koryphe.impl.binaryoperator.Sum;
 import uk.gov.gchq.koryphe.impl.predicate.AgeOff;
 import uk.gov.gchq.koryphe.impl.predicate.IsLessThan;
@@ -56,7 +55,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeSet;
 
 import static org.junit.Assume.assumeTrue;
 
@@ -66,7 +64,7 @@ import static org.junit.Assume.assumeTrue;
  * prior to running the tests.
  */
 public abstract class AbstractStoreIT {
-    protected static final long AGE_OFF_TIME = 10L * 1000; // 10 seconds;
+    protected static final long AGE_OFF_TIME = 10L * 1000; // 4 seconds;
 
     // Identifier prefixes
     public static final String SOURCE = "1-Source";
@@ -112,7 +110,6 @@ public abstract class AbstractStoreIT {
     @Rule
     public TestName name = new TestName();
     private static Map<? extends Class<? extends AbstractStoreIT>, String> skippedTests;
-    private static Map<? extends Class<? extends AbstractStoreIT>, Map<String, String>> skipTestMethods;
 
 
     public static void setStoreProperties(final StoreProperties storeProperties) {
@@ -120,11 +117,11 @@ public abstract class AbstractStoreIT {
     }
 
     public static StoreProperties getStoreProperties() {
-        return storeProperties.clone();
+        return storeProperties;
     }
 
     public static Schema getStoreSchema() {
-        return storeSchema.clone();
+        return storeSchema;
     }
 
     public static void setStoreSchema(final Schema storeSchema) {
@@ -137,10 +134,6 @@ public abstract class AbstractStoreIT {
 
     public static void setSingleTestMethod(final String singleTestMethod) {
         AbstractStoreIT.singleTestMethod = singleTestMethod;
-    }
-
-    public static void setSkipTestMethods(final Map<? extends Class<? extends AbstractStoreIT>, Map<String, String>> skipTestMethods) {
-        AbstractStoreIT.skipTestMethods = skipTestMethods;
     }
 
     /**
@@ -170,39 +163,18 @@ public abstract class AbstractStoreIT {
         }
         assumeTrue("Skipping test. Justification: " + skippedTests.get(getClass()), !skippedTests.containsKey(getClass()));
 
-        final Map<String, String> skippedMethods = skipTestMethods.get(getClass());
-        if (null != skippedMethods) {
-            assumeTrue("Skipping test. Justification: " + skippedMethods.get(originalMethodName), !skippedMethods.containsKey(originalMethodName));
-        }
-
-        createGraph();
+        graph = new Graph.Builder()
+                .config(new GraphConfig.Builder()
+                        .graphId("integrationTestGraph")
+                        .build())
+                .storeProperties(storeProperties)
+                .addSchema(createSchema())
+                .addSchema(storeSchema)
+                .build();
 
         for (final StoreTrait requiredTrait : requiredTraits) {
             assumeTrue("Skipping test as the store does not implement all required traits.", graph.hasTrait(requiredTrait));
         }
-    }
-
-    protected void createGraph() {
-        graph = getGraphBuilder()
-                .build();
-    }
-
-    protected Graph.Builder getGraphBuilder() {
-        return new Graph.Builder()
-                .config(new GraphConfig.Builder()
-                        .graphId("integrationTestGraph")
-                        .build())
-                .storeProperties(getStoreProperties())
-                .addSchema(createSchema())
-                .addSchema(getStoreSchema());
-    }
-
-    protected void addStoreProperties(final StoreProperties storeProperties) {
-        graph = getGraphBuilder().addStoreProperties(storeProperties).build();
-    }
-
-    protected void addGraphConfig(final GraphConfig graphConfig) {
-        graph = getGraphBuilder().config(graphConfig).build();
     }
 
     protected Schema createSchema() {
@@ -217,9 +189,9 @@ public abstract class AbstractStoreIT {
                 .type(TestTypes.DIRECTED_EITHER, new TypeDefinition.Builder()
                         .clazz(Boolean.class)
                         .build())
-                .type(TestTypes.PROP_SET_STRING, new TypeDefinition.Builder()
-                        .clazz(TreeSet.class)
-                        .aggregateFunction(new CollectionConcat<>())
+                .type(TestTypes.PROP_STRING, new TypeDefinition.Builder()
+                        .clazz(String.class)
+                        .aggregateFunction(new StringConcat())
                         .build())
                 .type(TestTypes.PROP_INTEGER, new TypeDefinition.Builder()
                         .clazz(Integer.class)
@@ -245,8 +217,7 @@ public abstract class AbstractStoreIT {
                         .build())
                 .entity(TestGroups.ENTITY, new SchemaEntityDefinition.Builder()
                         .vertex(TestTypes.ID_STRING)
-                        .property(TestPropertyNames.COUNT, TestTypes.PROP_COUNT)
-                        .property(TestPropertyNames.SET, TestTypes.PROP_SET_STRING)
+                        .property(TestPropertyNames.STRING, TestTypes.PROP_STRING)
                         .groupBy(TestPropertyNames.INT)
                         .build())
                 .edge(TestGroups.EDGE, new SchemaEdgeDefinition.Builder()
@@ -358,29 +329,24 @@ public abstract class AbstractStoreIT {
         for (int i = 0; i <= 10; i++) {
             for (int j = 0; j < VERTEX_PREFIXES.length; j++) {
                 final Entity entity = new Entity(TestGroups.ENTITY, VERTEX_PREFIXES[j] + i);
-                entity.putProperty(TestPropertyNames.COUNT, 1L);
-                entity.putProperty(TestPropertyNames.SET, CollectionUtil.treeSet("3"));
+                entity.putProperty(TestPropertyNames.STRING, "3");
                 addToMap(entity, entities);
             }
 
             final Entity secondEntity = new Entity(TestGroups.ENTITY, SOURCE + i);
-            secondEntity.putProperty(TestPropertyNames.COUNT, 1L);
-            secondEntity.putProperty(TestPropertyNames.SET, CollectionUtil.treeSet("3"));
+            secondEntity.putProperty(TestPropertyNames.STRING, "3");
             addToMap(secondEntity, entities);
 
             final Entity thirdEntity = new Entity(TestGroups.ENTITY, DEST + i);
-            thirdEntity.putProperty(TestPropertyNames.COUNT, 1L);
-            thirdEntity.putProperty(TestPropertyNames.SET, CollectionUtil.treeSet("3"));
+            thirdEntity.putProperty(TestPropertyNames.STRING, "3");
             addToMap(thirdEntity, entities);
 
             final Entity fourthEntity = new Entity(TestGroups.ENTITY, SOURCE_DIR + i);
-            fourthEntity.putProperty(TestPropertyNames.COUNT, 1L);
-            fourthEntity.putProperty(TestPropertyNames.SET, CollectionUtil.treeSet("3"));
+            fourthEntity.putProperty(TestPropertyNames.STRING, "3");
             addToMap(fourthEntity, entities);
 
             final Entity fifthEntity = new Entity(TestGroups.ENTITY, DEST_DIR + i);
-            fifthEntity.putProperty(TestPropertyNames.COUNT, 1L);
-            fifthEntity.putProperty(TestPropertyNames.SET, CollectionUtil.treeSet("3"));
+            fifthEntity.putProperty(TestPropertyNames.STRING, "3");
             addToMap(fifthEntity, entities);
         }
 

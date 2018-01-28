@@ -20,7 +20,6 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 
 import uk.gov.gchq.gaffer.data.element.Element;
-import uk.gov.gchq.gaffer.operation.Operation;
 import uk.gov.gchq.gaffer.operation.Validatable;
 import uk.gov.gchq.gaffer.store.Store;
 
@@ -31,11 +30,11 @@ import java.io.IOException;
  * to be consumed from external sources.
  */
 @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED", justification = "There are null checks that will initialise the fields")
-public class GafferOutput extends RichOutputFormat<Element> {
+public class GafferOutput extends RichOutputFormat<Iterable<? extends Element>> {
     private static final long serialVersionUID = 1569145256866410621L;
     private final GafferAdder adder;
 
-    public <OP extends Validatable & Operation> GafferOutput(final OP validatable, final Store store) {
+    public GafferOutput(final Validatable validatable, final Store store) {
         this(new GafferAdder(validatable, store));
     }
 
@@ -49,8 +48,8 @@ public class GafferOutput extends RichOutputFormat<Element> {
     }
 
     @Override
-    public void writeRecord(final Element element) {
-        adder.add(element);
+    public void writeRecord(final Iterable<? extends Element> elements) {
+        adder.add(elements);
     }
 
     @Override

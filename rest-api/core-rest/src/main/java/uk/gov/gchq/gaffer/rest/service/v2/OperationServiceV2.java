@@ -24,8 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import uk.gov.gchq.gaffer.commonutil.CloseableUtil;
 import uk.gov.gchq.gaffer.commonutil.Required;
-import uk.gov.gchq.gaffer.commonutil.pair.Pair;
-import uk.gov.gchq.gaffer.core.exception.Error;
 import uk.gov.gchq.gaffer.core.exception.GafferRuntimeException;
 import uk.gov.gchq.gaffer.core.exception.Status;
 import uk.gov.gchq.gaffer.operation.Operation;
@@ -49,7 +47,6 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import static uk.gov.gchq.gaffer.jsonserialisation.JSONSerialiser.createDefaultMapper;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.GAFFER_MEDIA_TYPE;
 import static uk.gov.gchq.gaffer.rest.ServiceConstants.GAFFER_MEDIA_TYPE_HEADER;
-import static uk.gov.gchq.gaffer.rest.ServiceConstants.JOB_ID_HEADER;
 
 /**
  * An implementation of {@link IOperationServiceV2}. By default it will use a singleton
@@ -81,16 +78,16 @@ public class OperationServiceV2 implements IOperationServiceV2 {
 
     @Override
     public Response execute(final Operation operation) {
-        final Pair<Object, String> resultAndJobId = _execute(operation);
-        return Response.ok(resultAndJobId.getFirst())
+        return Response.ok(_execute(operation))
                 .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
-                .header(JOB_ID_HEADER, resultAndJobId.getSecond())
                 .build();
     }
 
     @Override
     public ChunkedOutput<String> executeChunked(final Operation operation) {
-        return executeChunkedChain(OperationChain.wrap(operation));
+        return (operation instanceof OperationChain)
+                ? executeChunkedChain((OperationChain) operation)
+                : executeChunkedChain(new OperationChain(operation));
     }
 
     @SuppressFBWarnings
@@ -102,7 +99,7 @@ public class OperationServiceV2 implements IOperationServiceV2 {
         // write chunks to the chunked output object
         new Thread(() -> {
             try {
-                final Object result = _execute(opChain).getFirst();
+                final Object result = _execute(opChain);
                 chunkResult(result, output);
             } finally {
                 CloseableUtil.close(output);
@@ -116,33 +113,12 @@ public class OperationServiceV2 implements IOperationServiceV2 {
     @Override
     public Response operationDetails(final String className) throws InstantiationException, IllegalAccessException {
         try {
-            final Class<? extends Operation> operationClass = getOperationClass(className);
-
-            if (graphFactory.getGraph().getSupportedOperations().contains(operationClass)) {
-                return Response.ok(new OperationDetail(getOperationClass(className)))
-                        .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
-                        .build();
-            } else {
-                LOGGER.info("Class: {} was found on the classpath, but is not supported by the current store.", className);
-                return Response.status(NOT_FOUND)
-                        .entity(new Error.ErrorBuilder()
-                                .status(Status.NOT_FOUND)
-                                .statusCode(404)
-                                .simpleMessage("Class: " + className + " is not supported by the current store.")
-                                .detailMessage("Class: " + className + " was found on the classpath," +
-                                        "but is not supported by the current store.")
-                                .build())
-                        .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
-                        .build();
-            }
+            return Response.ok(new OperationDetail(getOperationClass(className)))
+                    .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
+                    .build();
         } catch (final ClassNotFoundException e) {
             LOGGER.info("Class: {} was not found on the classpath.", className, e);
             return Response.status(NOT_FOUND)
-                    .entity(new Error.ErrorBuilder()
-                            .status(Status.NOT_FOUND)
-                            .statusCode(404)
-                            .simpleMessage("Class: " + className + " was not found on the classpath.")
-                            .build())
                     .header(GAFFER_MEDIA_TYPE_HEADER, GAFFER_MEDIA_TYPE)
                     .build();
         }
@@ -190,9 +166,15 @@ public class OperationServiceV2 implements IOperationServiceV2 {
     }
 
     @SuppressWarnings("ThrowFromFinallyBlock")
-    protected <O> Pair<O, String> _execute(final Operation operation) {
+    protected <O> O _execute(final Operation operation) {
 
-        OperationChain<O> opChain = (OperationChain<O>) OperationChain.wrap(operation);
+        OperationChain<O> opChain;
+
+        if (!(operation instanceof OperationChain)) {
+            opChain = new OperationChain<>(operation);
+        } else {
+            opChain = (OperationChain<O>) operation;
+        }
 
         final Context context = userFactory.createContext();
         preOperationHook(opChain, context);
@@ -202,11 +184,7 @@ public class OperationServiceV2 implements IOperationServiceV2 {
             result = graphFactory.getGraph().execute(opChain, context);
         } catch (final OperationException e) {
             CloseableUtil.close(operation);
-            if (null != e.getMessage()) {
-                throw new RuntimeException("Error executing opChain: " + e.getMessage(), e);
-            } else {
-                throw new RuntimeException("Error executing opChain", e);
-            }
+            throw new RuntimeException("Error executing opChain", e);
         } finally {
             try {
                 postOperationHook(opChain, context);
@@ -216,7 +194,7 @@ public class OperationServiceV2 implements IOperationServiceV2 {
             }
         }
 
-        return new Pair<>(result, context.getJobId());
+        return result;
     }
 
     protected void chunkResult(final Object result, final ChunkedOutput<String> output) {

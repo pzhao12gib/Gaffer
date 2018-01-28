@@ -64,15 +64,12 @@ public class QueryAggregationProcessor implements GafferScannerProcessor {
                 continue;
             }
 
-            if (!aggregatedGroups.contains(elementCell.getGroup())) {
-                if (null != firstElementCell) {
-                    output(firstElementCell, aggregatedProperties, output);
-                    firstElementCell = null;
-                }
-                output(elementCell, null, output);
+            if (null == firstElementCell) {
+                firstElementCell = elementCell;
                 aggregatedProperties = null;
                 aggregator = null;
-            } else if (null == firstElementCell) {
+            } else if (!aggregatedGroups.contains(elementCell.getGroup())) {
+                completeAggregator(firstElementCell, aggregatedProperties, output);
                 firstElementCell = elementCell;
                 aggregatedProperties = null;
                 aggregator = null;
@@ -82,7 +79,7 @@ public class QueryAggregationProcessor implements GafferScannerProcessor {
                 final ViewElementDefinition elementDef = view.getElement(group);
                 final Set<String> groupBy = null != elementDef ? elementDef.getGroupBy() : null;
                 if (!compareGroupByKeys(firstElementCell.getCell(), elementCell.getCell(), group, schemaGroupBy, groupBy)) {
-                    output(firstElementCell, aggregatedProperties, output);
+                    completeAggregator(firstElementCell, aggregatedProperties, output);
                     firstElementCell = elementCell;
                     aggregatedProperties = null;
                     aggregator = null;
@@ -98,13 +95,13 @@ public class QueryAggregationProcessor implements GafferScannerProcessor {
                 }
             }
         }
-        output(firstElementCell, aggregatedProperties, output);
+        completeAggregator(firstElementCell, aggregatedProperties, output);
         return output;
     }
 
-    private void output(final LazyElementCell elementCell,
-                        final Properties aggregatedProperties,
-                        final List<LazyElementCell> output) {
+    private void completeAggregator(final LazyElementCell elementCell,
+                                    final Properties aggregatedProperties,
+                                    final List<LazyElementCell> output) {
         if (null == aggregatedProperties) {
             if (null != elementCell) {
                 output.add(elementCell);

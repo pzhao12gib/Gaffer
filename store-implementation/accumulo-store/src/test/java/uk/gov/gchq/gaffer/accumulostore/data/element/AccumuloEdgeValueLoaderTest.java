@@ -23,7 +23,6 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import uk.gov.gchq.gaffer.accumulostore.key.AccumuloElementConverter;
-import uk.gov.gchq.gaffer.accumulostore.utils.AccumuloStoreConstants;
 import uk.gov.gchq.gaffer.commonutil.TestGroups;
 import uk.gov.gchq.gaffer.commonutil.TestPropertyNames;
 import uk.gov.gchq.gaffer.data.element.Edge;
@@ -61,7 +60,7 @@ public class AccumuloEdgeValueLoaderTest {
         loader.loadIdentifiers(edge);
 
         // Then
-        verify(edge).setIdentifiers("source", "dest", true, EdgeId.MatchedVertex.SOURCE);
+        verify(edge).setIdentifiers("source", "dest", true);
         verify(converter, never()).getPropertiesFromColumnQualifier(Mockito.eq(group), Mockito.any(byte[].class));
         verify(converter, never()).getPropertiesFromColumnVisibility(Mockito.eq(group), Mockito.any(byte[].class));
         verify(converter, never()).getPropertiesFromTimestamp(Mockito.eq(group), Mockito.anyLong());
@@ -193,7 +192,7 @@ public class AccumuloEdgeValueLoaderTest {
                         .groupBy(TestPropertyNames.PROP_1, TestPropertyNames.PROP_2)
                         .build())
                 .visibilityProperty(TestPropertyNames.VISIBILITY)
-                .config(AccumuloStoreConstants.TIMESTAMP_PROPERTY, TestPropertyNames.TIMESTAMP)
+                .timestampProperty(TestPropertyNames.TIMESTAMP)
                 .build();
     }
 }

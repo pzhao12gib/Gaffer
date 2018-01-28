@@ -982,6 +982,7 @@ public class AggregatorUtilTest {
                         .description(SchemaTest.TIMESTAMP_TYPE_DESCRIPTION)
                         .build())
                 .visibilityProperty(TestPropertyNames.VISIBILITY)
+                .timestampProperty(TestPropertyNames.TIMESTAMP)
                 .build();
     }
 }

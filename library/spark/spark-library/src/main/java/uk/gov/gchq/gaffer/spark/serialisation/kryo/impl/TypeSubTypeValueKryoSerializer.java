@@ -23,8 +23,7 @@ import com.esotericsoftware.kryo.io.Output;
 import uk.gov.gchq.gaffer.types.TypeSubTypeValue;
 
 /**
- * A {@code TypeSubTypeValueKryoSerializer} is a {@link Kryo} {@link com.esotericsoftware.kryo.Serializer} for
- * a {@link TypeSubTypeValue}
+ * A Kryo {@link Serializer} for a {@link TypeSubTypeValue}
  */
 public class TypeSubTypeValueKryoSerializer extends Serializer<TypeSubTypeValue> {
     @Override

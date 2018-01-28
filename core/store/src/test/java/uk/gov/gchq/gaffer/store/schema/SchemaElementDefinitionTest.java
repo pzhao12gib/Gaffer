@@ -822,7 +822,8 @@ public abstract class SchemaElementDefinitionTest<T extends SchemaElementDefinit
                         .aggregateFunction(new ExampleAggregateFunction())
                         .validateFunctions(new Exists())
                         .build())
-                .visibilityProperty("visibility");
+                .visibilityProperty("visibility")
+                .timestampProperty("timestamp");
         if (elementDef instanceof SchemaEdgeDefinition) {
             schemaBuilder.edge(TestGroups.EDGE, (SchemaEdgeDefinition) elementDef);
         } else {

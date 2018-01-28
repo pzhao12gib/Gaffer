@@ -57,20 +57,13 @@ public class StoreAggregationProcessor implements GafferScannerProcessor {
                 continue;
             }
 
-            if (!aggregatedGroups.contains(elementCell.getGroup())) {
-                if (null != firstElementCell) {
-                    output(firstElementCell, aggregatedProperties, output);
-                    firstElementCell = null;
-                }
-                output(elementCell, null, output);
-                aggregatedProperties = null;
-                aggregator = null;
-            } else if (null == firstElementCell) {
+            if (null == firstElementCell) {
                 firstElementCell = elementCell;
                 aggregatedProperties = null;
                 aggregator = null;
-            } else if (!HBaseUtil.compareKeys(firstElementCell.getCell(), elementCell.getCell())) {
-                output(firstElementCell, aggregatedProperties, output);
+            } else if (!aggregatedGroups.contains(elementCell.getGroup())
+                    || !HBaseUtil.compareKeys(firstElementCell.getCell(), elementCell.getCell())) {
+                completeAggregator(firstElementCell, aggregatedProperties, output);
                 firstElementCell = elementCell;
                 aggregatedProperties = null;
                 aggregator = null;
@@ -85,11 +78,11 @@ public class StoreAggregationProcessor implements GafferScannerProcessor {
                 aggregatedProperties = aggregator.apply(properties, aggregatedProperties);
             }
         }
-        output(firstElementCell, aggregatedProperties, output);
+        completeAggregator(firstElementCell, aggregatedProperties, output);
         return output;
     }
 
-    private void output(final LazyElementCell elementCell, final Properties aggregatedProperties, final List<LazyElementCell> output) {
+    private void completeAggregator(final LazyElementCell elementCell, final Properties aggregatedProperties, final List<LazyElementCell> output) {
         if (null == aggregatedProperties) {
             if (null != elementCell) {
                 output.add(elementCell);

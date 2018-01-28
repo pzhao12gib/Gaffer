@@ -23,10 +23,10 @@ import uk.gov.gchq.gaffer.rest.RestApiTestClient;
 import uk.gov.gchq.gaffer.rest.SystemStatus;
 import uk.gov.gchq.gaffer.rest.application.ApplicationConfigV2;
 
+import java.io.IOException;
+
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
-
-import java.io.IOException;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 
@@ -74,19 +74,5 @@ public class RestApiV2TestClient extends RestApiTestClient {
                 .path("/graph/status")
                 .request()
                 .get(SystemStatus.class);
-    }
-
-    public Response getProperties() {
-        return client.target(uriString)
-                .path("/properties")
-                .request()
-                .get(Response.class);
-    }
-
-    public Response getProperty(String property) {
-        return client.target(uriString)
-                .path("/properties/" + property)
-                .request()
-                .get(Response.class);
     }
 }

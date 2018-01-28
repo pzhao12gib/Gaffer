@@ -37,11 +37,7 @@ import java.util.regex.Pattern;
 public class CsvGenerator implements OneToOneObjectGenerator<String> {
     public static final String GROUP = "GROUP";
     public static final String COMMA = ",";
-    private static final Pattern COMMA_PATTERN = Pattern.compile(COMMA);
-    private static final String COMMA_REPLACEMENT_DEFAULT = " ";
-
     private LinkedHashMap<String, String> fields = new LinkedHashMap<>();
-
     private LinkedHashMap<String, String> constants = new LinkedHashMap<>();
 
     /**
@@ -52,7 +48,9 @@ public class CsvGenerator implements OneToOneObjectGenerator<String> {
     /**
      * Replaces commas with this string. If null then no replacement is done.
      */
-    private String commaReplacement = COMMA_REPLACEMENT_DEFAULT;
+    private String commaReplacement = " ";
+
+    private Pattern commaReplacementPattern = Pattern.compile(commaReplacement);
 
     private Object getFieldValue(final Element element, final String key) {
         final IdentifierType idType = IdentifierType.fromName(key);
@@ -145,8 +143,8 @@ public class CsvGenerator implements OneToOneObjectGenerator<String> {
             value = s.toString();
         }
 
-        if (null != commaReplacement) {
-            value = COMMA_PATTERN.matcher(value).replaceAll(commaReplacement);
+        if (null != commaReplacementPattern) {
+            value = commaReplacementPattern.matcher(value).replaceAll(commaReplacement);
         }
 
         if (quoted) {
@@ -171,13 +169,18 @@ public class CsvGenerator implements OneToOneObjectGenerator<String> {
 
     public void setCommaReplacement(final String commaReplacement) {
         this.commaReplacement = commaReplacement;
+        if (null == this.commaReplacement) {
+            commaReplacementPattern = null;
+        } else {
+            commaReplacementPattern = Pattern.compile(this.commaReplacement);
+        }
     }
 
     public static class Builder {
         private LinkedHashMap<String, String> fields = new LinkedHashMap<>();
         private LinkedHashMap<String, String> constants = new LinkedHashMap<>();
-        private String commaReplacement = COMMA_REPLACEMENT_DEFAULT;
-        private Boolean quoted;
+        private String commaReplacement;
+        private boolean quoted;
 
         public CsvGenerator.Builder group(final String columnHeader) {
             fields.put(GROUP, columnHeader);
@@ -230,9 +233,7 @@ public class CsvGenerator implements OneToOneObjectGenerator<String> {
             generator.setFields(fields);
             generator.setConstants(constants);
             generator.setCommaReplacement(commaReplacement);
-            if (null != quoted) {
-                generator.setQuoted(quoted);
-            }
+            generator.setQuoted(quoted);
 
             return generator;
         }

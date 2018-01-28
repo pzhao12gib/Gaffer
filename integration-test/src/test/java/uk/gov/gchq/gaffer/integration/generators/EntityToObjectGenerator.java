@@ -38,7 +38,7 @@ public class EntityToObjectGenerator implements OneToOneObjectGenerator<EntityDo
             final EntityDomainObject basicEntity = new EntityDomainObject();
             basicEntity.setName((String) entity.getVertex());
             basicEntity.setIntProperty((Integer) entity.getProperty(TestPropertyNames.INT));
-            basicEntity.setStringproperty(entity.getProperty(TestPropertyNames.SET).toString().replaceAll("[\\[\\]]", ""));
+            basicEntity.setStringproperty((String) entity.getProperty(TestPropertyNames.STRING));
             return basicEntity;
         }
 

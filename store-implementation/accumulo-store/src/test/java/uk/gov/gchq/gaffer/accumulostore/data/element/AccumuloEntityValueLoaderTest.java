@@ -23,7 +23,6 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import uk.gov.gchq.gaffer.accumulostore.key.AccumuloElementConverter;
-import uk.gov.gchq.gaffer.accumulostore.utils.AccumuloStoreConstants;
 import uk.gov.gchq.gaffer.commonutil.TestGroups;
 import uk.gov.gchq.gaffer.commonutil.TestPropertyNames;
 import uk.gov.gchq.gaffer.data.element.Entity;
@@ -192,7 +191,7 @@ public class AccumuloEntityValueLoaderTest {
                         .groupBy(TestPropertyNames.PROP_1, TestPropertyNames.PROP_2)
                         .build())
                 .visibilityProperty(TestPropertyNames.VISIBILITY)
-                .config(AccumuloStoreConstants.TIMESTAMP_PROPERTY, TestPropertyNames.TIMESTAMP)
+                .timestampProperty(TestPropertyNames.TIMESTAMP)
                 .build();
     }
 }

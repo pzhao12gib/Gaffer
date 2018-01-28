@@ -21,7 +21,6 @@ import org.junit.Test;
 import uk.gov.gchq.gaffer.commonutil.ByteArrayEscapeUtils;
 import uk.gov.gchq.gaffer.commonutil.StreamUtil;
 import uk.gov.gchq.gaffer.commonutil.TestGroups;
-import uk.gov.gchq.gaffer.commonutil.TestPropertyNames;
 import uk.gov.gchq.gaffer.commonutil.pair.Pair;
 import uk.gov.gchq.gaffer.data.element.Edge;
 import uk.gov.gchq.gaffer.data.element.EdgeDirection;
@@ -42,8 +41,8 @@ import uk.gov.gchq.gaffer.types.FreqMap;
 import uk.gov.gchq.gaffer.types.function.FreqMapAggregator;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -176,6 +175,7 @@ public class ElementSerialisationTest {
                 .build();
 
         final Pair<byte[], byte[]> keys = serialisation.getRowKeys(edge);
+        final Map<String, String> options = new HashMap<>();
 
         // When
         final Edge newEdge = (Edge) serialisation.getPartialElement(TestGroups.EDGE, keys.getSecond(), false);
@@ -342,14 +342,17 @@ public class ElementSerialisationTest {
                 .edge(TestGroups.EDGE, new SchemaEdgeDefinition.Builder()
                         .property(HBasePropertyNames.TIMESTAMP, "timestamp")
                         .build())
-                .config(HBaseStoreConstants.TIMESTAMP_PROPERTY, TestPropertyNames.TIMESTAMP)
+                .timestampProperty(HBasePropertyNames.TIMESTAMP)
                 .build());
 
         final long propertyTimestamp = 10L;
-        final Properties properties = new Properties();
-        properties.put(HBasePropertyNames.COLUMN_QUALIFIER, 1);
-        properties.put(HBasePropertyNames.PROP_1, 2);
-        properties.put(HBasePropertyNames.TIMESTAMP, propertyTimestamp);
+        final Properties properties = new Properties() {
+            {
+                put(HBasePropertyNames.COLUMN_QUALIFIER, 1);
+                put(HBasePropertyNames.PROP_1, 2);
+                put(HBasePropertyNames.TIMESTAMP, propertyTimestamp);
+            }
+        };
 
         // When
         final long timestamp = serialisation.getTimestamp(properties);
@@ -359,45 +362,49 @@ public class ElementSerialisationTest {
     }
 
     @Test
-    public void shouldBuildRandomTimeBasedTimestampWhenPropertyIsNull() throws Exception {
+    public void shouldBuildTimestampFromDefaultTimeWhenPropertyIsNull() throws Exception {
         // Given
         // add extra timestamp property to schema
         final Schema schema = new Schema.Builder().json(StreamUtil.schemas(getClass())).build();
         serialisation = new ElementSerialisation(new Schema.Builder(schema)
-                .config(HBaseStoreConstants.TIMESTAMP_PROPERTY, TestPropertyNames.TIMESTAMP)
+                .type("timestamp", Long.class)
+                .edge(TestGroups.EDGE, new SchemaEdgeDefinition.Builder()
+                        .property(HBasePropertyNames.TIMESTAMP, "timestamp")
+                        .build())
+                .timestampProperty(HBasePropertyNames.TIMESTAMP)
                 .build());
 
         final Long propertyTimestamp = null;
-        final Properties properties = new Properties();
-        properties.put(HBasePropertyNames.TIMESTAMP, propertyTimestamp);
+        final Properties properties = new Properties() {
+            {
+                put(HBasePropertyNames.COLUMN_QUALIFIER, 1);
+                put(HBasePropertyNames.PROP_1, 2);
+                put(HBasePropertyNames.TIMESTAMP, propertyTimestamp);
+            }
+        };
 
         // When
-        final int n = 100;
-        final Set<Long> timestamps = new HashSet<>(n);
-        for (int i = 0; i < n; i++) {
-            timestamps.add(serialisation.getTimestamp(properties));
-        }
+        final long timestamp = serialisation.getTimestamp(properties);
 
         // Then
-        assertEquals(n, timestamps.size());
+        assertNotNull(timestamp);
     }
 
     @Test
-    public void shouldBuildRandomTimeBasedTimestamp() throws Exception {
+    public void shouldBuildTimestampFromDefaultTime() throws Exception {
         // Given
-        final Properties properties = new Properties();
-        properties.put(HBasePropertyNames.COLUMN_QUALIFIER, 1);
-        properties.put(HBasePropertyNames.PROP_1, 2);
+        final Properties properties = new Properties() {
+            {
+                put(HBasePropertyNames.COLUMN_QUALIFIER, 1);
+                put(HBasePropertyNames.PROP_1, 2);
+            }
+        };
 
         // When
-        final int n = 100;
-        final Set<Long> timestamps = new HashSet<>(n);
-        for (int i = 0; i < n; i++) {
-            timestamps.add(serialisation.getTimestamp(properties));
-        }
+        final long timestamp = serialisation.getTimestamp(properties);
 
         // Then
-        assertEquals(n, timestamps.size());
+        assertNotNull(timestamp);
     }
 
     @Test
@@ -410,7 +417,7 @@ public class ElementSerialisationTest {
                 .edge(TestGroups.EDGE, new SchemaEdgeDefinition.Builder()
                         .property(HBasePropertyNames.TIMESTAMP, "timestamp")
                         .build())
-                .config(HBaseStoreConstants.TIMESTAMP_PROPERTY, TestPropertyNames.TIMESTAMP)
+                .timestampProperty(HBasePropertyNames.TIMESTAMP)
                 .build());
 
         final long timestamp = System.currentTimeMillis();
@@ -430,7 +437,7 @@ public class ElementSerialisationTest {
         // add timestamp property name but don't add the property to the edge group
         final Schema schema = new Schema.Builder().json(StreamUtil.schemas(getClass())).build();
         serialisation = new ElementSerialisation(new Schema.Builder(schema)
-                .config(HBaseStoreConstants.TIMESTAMP_PROPERTY, TestPropertyNames.TIMESTAMP)
+                .timestampProperty(HBasePropertyNames.TIMESTAMP)
                 .build());
 
         final long timestamp = System.currentTimeMillis();
@@ -478,10 +485,10 @@ public class ElementSerialisationTest {
         // Given 
         final Schema schema = new Schema.Builder()
                 .entity(TestGroups.ENTITY, new SchemaEntityDefinition.Builder()
-                                .vertex("string")
-                                .property(HBasePropertyNames.PROP_1, "map")
-                                .property(HBasePropertyNames.PROP_2, "map")
-                                .build()
+                        .vertex("string")
+                        .property(HBasePropertyNames.PROP_1, "map")
+                        .property(HBasePropertyNames.PROP_2, "map")
+                        .build()
                 )
                 .type("string", String.class)
                 .type("map", new TypeDefinition.Builder()

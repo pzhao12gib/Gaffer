@@ -47,16 +47,12 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
 
-import static uk.gov.gchq.gaffer.accumulostore.utils.AccumuloStoreConstants.DEFAULT_TIMESTAMP;
-
 @SuppressWarnings("unchecked")
 public abstract class AbstractCoreKeyAccumuloElementConverter implements AccumuloElementConverter {
     protected final Schema schema;
-    private final String timestampProperty;
 
     public AbstractCoreKeyAccumuloElementConverter(final Schema schema) {
         this.schema = schema;
-        this.timestampProperty = null != schema ? schema.getConfig(AccumuloStoreConstants.TIMESTAMP_PROPERTY) : null;
     }
 
     @Override
@@ -86,7 +82,7 @@ public abstract class AbstractCoreKeyAccumuloElementConverter implements Accumul
         final byte[] columnFamily = buildColumnFamily(edge.getGroup());
         final byte[] columnQualifier = buildColumnQualifier(edge.getGroup(), edge.getProperties());
         final byte[] columnVisibility = buildColumnVisibility(edge.getGroup(), edge.getProperties());
-        final long timeStamp = buildTimestamp(edge.getGroup(), edge.getProperties());
+        final long timeStamp = buildTimestamp(edge.getProperties());
         // Create Accumulo keys - note that second row key may be null (if it's
         // a self-edge) and
         // in that case we should return null second key
@@ -107,7 +103,7 @@ public abstract class AbstractCoreKeyAccumuloElementConverter implements Accumul
         // Column visibility is formed from the visibility
         final byte[] columnVisibility = buildColumnVisibility(entity.getGroup(), entity.getProperties());
 
-        final long timeStamp = buildTimestamp(entity.getGroup(), entity.getProperties());
+        final long timeStamp = buildTimestamp(entity.getProperties());
 
         // Create and return key
         return new Key(rowKey, columnFamily, columnQualifier, columnVisibility, timeStamp);
@@ -171,16 +167,6 @@ public abstract class AbstractCoreKeyAccumuloElementConverter implements Accumul
         final Element element = getElementFromKey(key, includeMatchedVertex);
         element.copyProperties(getPropertiesFromValue(element.getGroup(), value));
         return element;
-    }
-
-    @Override
-    public Pair<byte[], byte[]> getRowKeysFromElement(final Element element) {
-        if (element instanceof Entity) {
-            final byte[] rowKey = getRowKeyFromEntity((Entity) element);
-            return new Pair<>(rowKey, null);
-        }
-
-        return getRowKeysFromEdge((Edge) element);
     }
 
     @Override
@@ -354,17 +340,16 @@ public abstract class AbstractCoreKeyAccumuloElementConverter implements Accumul
     }
 
     @Override
-    public long buildTimestamp(final String group, final Properties properties) {
-        Long timestamp = null;
-        if (null != timestampProperty) {
-            timestamp = (Long) properties.get(timestampProperty);
+    public long buildTimestamp(final Properties properties) {
+        if (null != schema.getTimestampProperty()) {
+            final Object property = properties.get(schema.getTimestampProperty());
+            if (null == property) {
+                return System.currentTimeMillis();
+            } else {
+                return (Long) property;
+            }
         }
-
-        if (null == timestamp) {
-            timestamp = DEFAULT_TIMESTAMP;
-        }
-
-        return timestamp;
+        return System.currentTimeMillis();
     }
 
     /**
@@ -382,8 +367,8 @@ public abstract class AbstractCoreKeyAccumuloElementConverter implements Accumul
 
         final Properties properties = new Properties();
         // If the element group requires a timestamp property then add it.
-        if (null != timestampProperty && elementDefinition.containsProperty(timestampProperty)) {
-            properties.put(timestampProperty, timestamp);
+        if (null != schema.getTimestampProperty() && elementDefinition.containsProperty(schema.getTimestampProperty())) {
+            properties.put(schema.getTimestampProperty(), timestamp);
         }
         return properties;
     }
@@ -499,7 +484,7 @@ public abstract class AbstractCoreKeyAccumuloElementConverter implements Accumul
     protected boolean isStoredInValue(final String propertyName, final SchemaElementDefinition elementDef) {
         return !elementDef.getGroupBy().contains(propertyName)
                 && !propertyName.equals(schema.getVisibilityProperty())
-                && !propertyName.equals(timestampProperty);
+                && !propertyName.equals(schema.getTimestampProperty());
     }
 
     private void writeBytes(final byte[] bytes, final ByteArrayOutputStream out)

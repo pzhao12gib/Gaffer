@@ -16,23 +16,17 @@
 
 package uk.gov.gchq.gaffer.graph.hook;
 
-import com.google.common.collect.Lists;
 import org.junit.Test;
 import sun.misc.IOUtils;
 
-import uk.gov.gchq.gaffer.commonutil.JsonAssert;
 import uk.gov.gchq.gaffer.commonutil.StreamUtil;
-import uk.gov.gchq.gaffer.exception.SerialisationException;
-import uk.gov.gchq.gaffer.jsonserialisation.JSONSerialiser;
 import uk.gov.gchq.gaffer.operation.Operation;
 import uk.gov.gchq.gaffer.operation.OperationChain;
-import uk.gov.gchq.gaffer.operation.TestUnmodifiableOperationsImpl;
 import uk.gov.gchq.gaffer.operation.impl.Count;
 import uk.gov.gchq.gaffer.operation.impl.CountGroups;
 import uk.gov.gchq.gaffer.operation.impl.DiscardOutput;
-import uk.gov.gchq.gaffer.operation.impl.GetWalks;
 import uk.gov.gchq.gaffer.operation.impl.Limit;
-import uk.gov.gchq.gaffer.operation.impl.SplitStoreFromFile;
+import uk.gov.gchq.gaffer.operation.impl.SplitStore;
 import uk.gov.gchq.gaffer.operation.impl.Validate;
 import uk.gov.gchq.gaffer.operation.impl.get.GetAdjacentIds;
 import uk.gov.gchq.gaffer.operation.impl.get.GetAllElements;
@@ -42,8 +36,7 @@ import uk.gov.gchq.gaffer.user.User;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -60,51 +53,12 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
     }
 
     @Test
-    public void shouldAddAllOperationsToGetWalksOperation() throws SerialisationException {
-        // Given
-        final AddOperationsToChain hook = new AddOperationsToChain();
-        final java.util.Map<String, List<Operation>> after = new HashMap<>();
-        after.put(GetElements.class.getName(), Lists.newArrayList(new Limit()));
-        hook.setAfter(after);
-        hook.setEnd(Lists.newArrayList(new Limit()));
-
-        final GetElements getElements = new GetElements();
-        final Limit limit = new Limit();
-
-        final OperationChain getWalksOperations = new OperationChain.Builder()
-                .first(getElements)
-                .build();
-
-        final GetWalks getWalks = new GetWalks.Builder()
-                .operations(getWalksOperations)
-                .build();
-
-        final OperationChain opChain = new OperationChain.Builder()
-                .first(getWalks)
-                .build();
-
-        // When
-        hook.preExecute(opChain, new Context(new User()));
-
-        // Then
-        final GetWalks expectedGetWalks = new GetWalks.Builder()
-                .operations(new OperationChain(getElements, limit))
-                .build();
-
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(expectedGetWalks)
-                .then(limit)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
-    }
-
-    @Test
     public void shouldAddAllOperationsWithNoAuthsGivenPath() throws IOException {
         // Given
         AddOperationsToChain hook = fromJson(ADD_OPERATIONS_TO_CHAIN_RESOURCE_PATH);
 
         Operation discardOutput = new DiscardOutput();
-        Operation splitStore = new SplitStoreFromFile();
+        Operation splitStore = new SplitStore();
         Operation validate = new Validate();
         Operation getAdjacentIds = new GetAdjacentIds();
         Operation count = new Count<>();
@@ -112,6 +66,20 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         Operation getElements = new GetElements();
         Operation getAllElements = new GetAllElements();
         Operation limit = new Limit<>();
+
+        final List expectedOperations = new ArrayList<Operation>();
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(splitStore);
+        expectedOperations.add(validate);
+        expectedOperations.add(getAdjacentIds);
+        expectedOperations.add(count);
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(countGroups);
+        expectedOperations.add(getElements);
+        expectedOperations.add(getAllElements);
+        expectedOperations.add(limit);
+        expectedOperations.add(validate);
+        expectedOperations.add(count);
 
         final OperationChain opChain = new OperationChain.Builder()
                 .first(getAdjacentIds)
@@ -123,21 +91,9 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         hook.preExecute(opChain, new Context(new User()));
 
         // Then
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(discardOutput)
-                .then(splitStore)
-                .then(validate)
-                .then(getAdjacentIds)
-                .then(count)
-                .then(discardOutput)
-                .then(countGroups)
-                .then(getElements)
-                .then(getAllElements)
-                .then(limit)
-                .then(validate)
-                .then(count)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
+        for (int i = 0; i < opChain.getOperations().size(); i++) {
+            assertTrue(expectedOperations.get(i).getClass().getName().contains(opChain.getOperations().get(i).getClass().getSimpleName()));
+        }
     }
 
     @Test
@@ -148,10 +104,17 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         User user = new User.Builder().opAuths("auth1", "auth2").build();
 
         Operation discardOutput = new DiscardOutput();
-        Operation splitStore = new SplitStoreFromFile();
+        Operation splitStore = new SplitStore();
         Operation getAdjacentIds = new GetAdjacentIds();
         Operation getElements = new GetElements();
         Operation getAllElements = new GetAllElements();
+
+        final List expectedOperations = new ArrayList<Operation>();
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(getAdjacentIds);
+        expectedOperations.add(getElements);
+        expectedOperations.add(getAllElements);
+        expectedOperations.add(splitStore);
 
         final OperationChain opChain = new OperationChain.Builder()
                 .first(getAdjacentIds)
@@ -163,14 +126,9 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         hook.preExecute(opChain, new Context(user));
 
         // Then
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(discardOutput)
-                .then(getAdjacentIds)
-                .then(getElements)
-                .then(getAllElements)
-                .then(splitStore)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
+        for (int i = 0; i < opChain.getOperations().size(); i++) {
+            assertTrue(expectedOperations.get(i).getClass().getName().contains(opChain.getOperations().get(i).getClass().getSimpleName()));
+        }
     }
 
     @Test
@@ -180,12 +138,20 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
 
         User user = new User.Builder().opAuths("auth2").build();
 
-        Operation splitStore = new SplitStoreFromFile();
+        Operation splitStore = new SplitStore();
         Operation validate = new Validate();
         Operation getAdjacentIds = new GetAdjacentIds();
         Operation countGroups = new CountGroups();
         Operation getElements = new GetElements();
         Operation getAllElements = new GetAllElements();
+
+        final List expectedOperations = new ArrayList<Operation>();
+        expectedOperations.add(validate);
+        expectedOperations.add(getAdjacentIds);
+        expectedOperations.add(countGroups);
+        expectedOperations.add(getElements);
+        expectedOperations.add(getAllElements);
+        expectedOperations.add(splitStore);
 
         final OperationChain opChain = new OperationChain.Builder()
                 .first(getAdjacentIds)
@@ -197,15 +163,9 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         hook.preExecute(opChain, new Context(user));
 
         // Then
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(validate)
-                .then(getAdjacentIds)
-                .then(countGroups)
-                .then(getElements)
-                .then(getAllElements)
-                .then(splitStore)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
+        for (int i = 0; i < opChain.getOperations().size(); i++) {
+            assertTrue(expectedOperations.get(i).getClass().getName().contains(opChain.getOperations().get(i).getClass().getSimpleName()));
+        }
     }
 
     @Test
@@ -218,7 +178,7 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         final AddOperationsToChain hook = fromJson(bytes);
 
         Operation discardOutput = new DiscardOutput();
-        Operation splitStore = new SplitStoreFromFile();
+        Operation splitStore = new SplitStore();
         Operation validate = new Validate();
         Operation getAdjacentIds = new GetAdjacentIds();
         Operation count = new Count<>();
@@ -226,6 +186,20 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         Operation getElements = new GetElements();
         Operation getAllElements = new GetAllElements();
         Operation limit = new Limit<>();
+
+        final List expectedOperations = new ArrayList<Operation>();
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(splitStore);
+        expectedOperations.add(validate);
+        expectedOperations.add(getAdjacentIds);
+        expectedOperations.add(count);
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(countGroups);
+        expectedOperations.add(getElements);
+        expectedOperations.add(getAllElements);
+        expectedOperations.add(limit);
+        expectedOperations.add(validate);
+        expectedOperations.add(count);
 
         final OperationChain opChain = new OperationChain.Builder()
                 .first(getAdjacentIds)
@@ -237,21 +211,9 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         hook.preExecute(opChain, new Context(new User()));
 
         // Then
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(discardOutput)
-                .then(splitStore)
-                .then(validate)
-                .then(getAdjacentIds)
-                .then(count)
-                .then(discardOutput)
-                .then(countGroups)
-                .then(getElements)
-                .then(getAllElements)
-                .then(limit)
-                .then(validate)
-                .then(count)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
+        for (int i = 0; i < opChain.getOperations().size(); i++) {
+            assertTrue(expectedOperations.get(i).getClass().getName().contains(opChain.getOperations().get(i).getClass().getSimpleName()));
+        }
     }
 
     @Test
@@ -304,9 +266,15 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         hook.setAfter(null);
 
         Operation discardOutput = new DiscardOutput();
-        Operation splitStore = new SplitStoreFromFile();
+        Operation splitStore = new SplitStore();
         Operation count = new Count<>();
         Operation getElements = new GetElements();
+
+        final List expectedOperations = new ArrayList<Operation>();
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(splitStore);
+        expectedOperations.add(getElements);
+        expectedOperations.add(count);
 
         final OperationChain opChain = new OperationChain.Builder()
                 .first(getElements)
@@ -316,22 +284,18 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         hook.preExecute(opChain, new Context(new User()));
 
         // Then
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(discardOutput)
-                .then(splitStore)
-                .then(getElements)
-                .then(count)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
+        for (int i = 0; i < opChain.getOperations().size(); i++) {
+            assertTrue(expectedOperations.get(i).getClass().getName().contains(opChain.getOperations().get(i).getClass().getSimpleName()));
+        }
     }
 
     @Test
-    public void shouldHandleNestedOperationChain() throws SerialisationException {
+    public void shouldHandleNestedOperationChain(){
         // Given
         AddOperationsToChain hook = fromJson(ADD_OPERATIONS_TO_CHAIN_RESOURCE_PATH);
 
         Operation discardOutput = new DiscardOutput();
-        Operation splitStore = new SplitStoreFromFile();
+        Operation splitStore = new SplitStore();
         Operation validate = new Validate();
         Operation getAdjacentIds = new GetAdjacentIds();
         Operation count = new Count<>();
@@ -340,72 +304,38 @@ public class AddOperationsToChainTest extends GraphHookTest<AddOperationsToChain
         Operation getAllElements = new GetAllElements();
         Operation limit = new Limit<>();
 
+        final List expectedOperations = new ArrayList<Operation>();
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(splitStore);
+        expectedOperations.add(validate);
+        expectedOperations.add(getAdjacentIds);
+        expectedOperations.add(count);
+        expectedOperations.add(discardOutput);
+        expectedOperations.add(countGroups);
+        expectedOperations.add(getElements);
+        expectedOperations.add(getAllElements);
+        expectedOperations.add(limit);
+        expectedOperations.add(validate);
+        expectedOperations.add(count);
+
+        final OperationChain opChain2 = new OperationChain.Builder()
+                .first(getElements)
+                .then(getAllElements)
+                .build();
+
         final OperationChain opChain = new OperationChain.Builder()
                 .first(getAdjacentIds)
-                .then(new OperationChain.Builder()
-                        .first(getElements)
-                        .then(getAllElements)
-                        .build())
+                .then(opChain2)
                 .build();
 
         // When
         hook.preExecute(opChain, new Context(new User()));
 
         // Then
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(discardOutput)
-                .then(splitStore)
-                .then(validate)
-                .then(getAdjacentIds)
-                .then(count)
-                .then(discardOutput)
-                .then((Operation) new OperationChain.Builder()
-                        .first(countGroups)
-                        .then(getElements)
-                        .then(getAllElements)
-                        .then(limit)
-                        .then(validate)
-                        .build())
-                .then(count)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
-    }
-
-    @Test
-    public void shouldFailQuietlyIfNestedOperationsCannotBeModified() throws SerialisationException {
-        // Given
-        AddOperationsToChain hook = fromJson(ADD_OPERATIONS_TO_CHAIN_RESOURCE_PATH);
-
-        Operation discardOutput = new DiscardOutput();
-        Operation splitStore = new SplitStoreFromFile();
-        Operation validate = new Validate();
-        Operation getAdjacentIds = new GetAdjacentIds();
-        Operation count = new Count<>();
-        Operation getElements = new GetElements();
-        Operation getAllElements = new GetAllElements();
-        TestUnmodifiableOperationsImpl nestedUnmodifiableOps = new TestUnmodifiableOperationsImpl(Arrays.asList(getAllElements, getElements));
-
-        final OperationChain opChain = new OperationChain.Builder()
-                .first(getAdjacentIds)
-                .then(nestedUnmodifiableOps)
-                .build();
-
-        // When
-        hook.preExecute(opChain, new Context(new User()));
-
-        // Then
-        final OperationChain expectedOpChain = new OperationChain.Builder()
-                .first(discardOutput)
-                .then(splitStore)
-                .then(validate)
-                .then(getAdjacentIds)
-                .then(count)
-                .then(discardOutput)
-                .then(nestedUnmodifiableOps)
-                .then(count)
-                .build();
-        JsonAssert.assertEquals(JSONSerialiser.serialise(expectedOpChain), JSONSerialiser.serialise(opChain));
-    }
+        for (int i = 0; i < opChain.getOperations().size(); i++) {
+            assertTrue(expectedOperations.get(i).getClass().getName().contains(opChain.getOperations().get(i).getClass().getSimpleName()));
+        }
+    };
 
     @Test
     public void shouldReturnClonedOperations() throws IOException {

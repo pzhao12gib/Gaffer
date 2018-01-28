@@ -19,17 +19,13 @@ package uk.gov.gchq.gaffer.hbasestore.serialisation;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.Tag;
 import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.mapreduce.CellCreator;
 import org.apache.hadoop.hbase.security.visibility.CellVisibility;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.gov.gchq.gaffer.commonutil.ByteArrayEscapeUtils;
-import uk.gov.gchq.gaffer.commonutil.LongUtil;
 import uk.gov.gchq.gaffer.commonutil.pair.Pair;
 import uk.gov.gchq.gaffer.data.element.Edge;
 import uk.gov.gchq.gaffer.data.element.EdgeDirection;
@@ -55,11 +51,9 @@ public class ElementSerialisation {
     private static final Logger LOGGER = LoggerFactory.getLogger(ElementSerialisation.class);
 
     private final Schema schema;
-    private final String timestampProperty;
 
     public ElementSerialisation(final Schema schema) {
         this.schema = schema;
-        this.timestampProperty = null != schema ? schema.getConfig(HBaseStoreConstants.TIMESTAMP_PROPERTY) : null;
     }
 
     public byte[] getValue(final Element element) throws SerialisationException {
@@ -164,13 +158,6 @@ public class ElementSerialisation {
             return getEntity(cell);
         }
         return getEdge(cell, includeMatchedVertex);
-    }
-
-    public Properties getProperties(final String group, final Cell cell) throws SerialisationException {
-        Properties properties = getPropertiesFromColumnQualifier(group, CellUtil.cloneQualifier(cell));
-        properties.putAll(getPropertiesFromValue(group, CellUtil.cloneValue(cell)));
-        properties.putAll(getPropertiesFromTimestamp(group, cell.getTimestamp()));
-        return properties;
     }
 
     public byte[] getColumnVisibility(final Element element) throws SerialisationException {
@@ -346,16 +333,15 @@ public class ElementSerialisation {
     }
 
     public long getTimestamp(final Properties properties) throws SerialisationException {
-        Long timestamp = null;
-        if (null != timestampProperty) {
-            timestamp = (Long) properties.get(timestampProperty);
+        if (null != schema.getTimestampProperty()) {
+            final Object property = properties.get(schema.getTimestampProperty());
+            if (null == property) {
+                return System.currentTimeMillis();
+            } else {
+                return (Long) property;
+            }
         }
-
-        if (null == timestamp) {
-            timestamp = LongUtil.getTimeBasedRandom();
-        }
-
-        return timestamp;
+        return System.currentTimeMillis();
     }
 
     /**
@@ -378,8 +364,8 @@ public class ElementSerialisation {
 
         final Properties properties = new Properties();
         // If the element group requires a timestamp property then add it.
-        if (null != timestampProperty && elementDefinition.containsProperty(timestampProperty)) {
-            properties.put(timestampProperty, timestamp);
+        if (null != schema.getTimestampProperty() && elementDefinition.containsProperty(schema.getTimestampProperty())) {
+            properties.put(schema.getTimestampProperty(), timestamp);
         }
         return properties;
     }
@@ -470,34 +456,6 @@ public class ElementSerialisation {
         return new Pair<>(rowKey1, rowKey2);
     }
 
-    public Pair<Cell, Cell> getCells(final Element element, final CellCreator kvCreator) throws SerialisationException {
-        final Pair<byte[], byte[]> row = getRowKeys(element);
-        final byte[] cq = getColumnQualifier(element);
-        return getCells(element, row, cq, kvCreator);
-    }
-
-    public Pair<Cell, Cell> getCells(final Element element, final Pair<byte[], byte[]> row, final byte[] cq, final CellCreator kvCreator) throws SerialisationException {
-        final long ts = getTimestamp(element.getProperties());
-        final byte[] value = getValue(element);
-        final String visibilityStr = Bytes.toString(getColumnVisibility(element));
-        byte[] tags = null;
-        if (!visibilityStr.isEmpty()) {
-            try {
-                tags = Tag.fromList(kvCreator.getVisibilityExpressionResolver().createVisibilityExpTags(visibilityStr));
-            } catch (final IOException e) {
-                throw new RuntimeException("Unable to create visibility tags", e);
-            }
-        }
-
-        final Cell cell = CellUtil.createCell(row.getFirst(), HBaseStoreConstants.getColFam(), cq, ts, KeyValue.Type.Maximum, value, tags);
-        final Pair<Cell, Cell> cells = new Pair<>(cell);
-        if (null != row.getSecond()) {
-            cells.setSecond(CellUtil.createCell(row.getSecond(), HBaseStoreConstants.getColFam(), cq, ts, KeyValue.Type.Maximum, value, tags));
-        }
-
-        return cells;
-    }
-
     public Pair<Put, Put> getPuts(final Element element) throws SerialisationException {
         final Pair<byte[], byte[]> row = getRowKeys(element);
         final byte[] cq = getColumnQualifier(element);
@@ -505,7 +463,7 @@ public class ElementSerialisation {
     }
 
     public Pair<Put, Put> getPuts(final Element element, final Pair<byte[], byte[]> row, final byte[] cq) throws SerialisationException {
-        final long ts = getTimestamp(element);
+        final long ts = getTimestamp(element.getProperties());
         final byte[] value = getValue(element);
         final String visibilityStr = Bytes.toString(getColumnVisibility(element));
         final CellVisibility cellVisibility = visibilityStr.isEmpty() ? null : new CellVisibility(visibilityStr);
@@ -585,7 +543,7 @@ public class ElementSerialisation {
 
     private boolean isStoredInValue(final String propertyName, final SchemaElementDefinition elementDef) {
         return !elementDef.getGroupBy().contains(propertyName)
-                && (null == timestampProperty || !propertyName.equals(timestampProperty));
+                && !propertyName.equals(schema.getTimestampProperty());
     }
 
     private void writeBytes(final byte[] bytes, final ByteArrayOutputStream out)

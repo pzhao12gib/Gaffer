@@ -14,5 +14,6 @@
       "aggregate": false
     }
   },
-  "visibilityProperty": "visibility"
+  "visibilityProperty": "visibility",
+  "timestampProperty": "timestamp"
 }
